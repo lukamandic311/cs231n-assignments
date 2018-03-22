@@ -16,6 +16,7 @@ class TwoLayerNet(object):
 
   input - fully connected layer - ReLU - fully connected layer - softmax
 
+
   The outputs of the second fully-connected layer are the scores for each class.
   """
 
@@ -71,44 +72,49 @@ class TwoLayerNet(object):
 
     # Compute the forward pass
     scores = None
-    #############################################################################
-    # TODO: Perform the forward pass, computing the class scores for the input. #
-    # Store the result in the scores variable, which should be an array of      #
-    # shape (N, C).                                                             #
-    #############################################################################
-    pass
-    #############################################################################
-    #                              END OF YOUR CODE                             #
-    #############################################################################
+
+    layer1 = np.dot(X,W1) + b1
+    ReLU1 = layer1
+    ReLU1[layer1 < 0] = 0
+
+    layer2 = np.dot(layer1,W2) + b2
     
+    scores = layer2
+
     # If the targets are not given then jump out, we're done
     if y is None:
       return scores
 
-    # Compute the loss
+    # Compute the softmax loss
     loss = None
-    #############################################################################
-    # TODO: Finish the forward pass, and compute the loss. This should include  #
-    # both the data loss and L2 regularization for W1 and W2. Store the result  #
-    # in the variable loss, which should be a scalar. Use the Softmax           #
-    # classifier loss.                                                          #
-    #############################################################################
-    pass
-    #############################################################################
-    #                              END OF YOUR CODE                             #
-    #############################################################################
-
+    
+    shift_scores = scores - np.max(scores, axis=1)[..., np.newaxis]
+    softmax_scores = np.exp(shift_scores) / np.sum(np.exp(shift_scores), axis=1)[..., np.newaxis]
+    correct_class_scores = np.choose(y, shift_scores.T) 
+    loss = -correct_class_scores + np.log(np.sum(np.exp(shift_scores), axis=1))
+    loss = np.sum(loss) / N + reg * (np.sum(W1*W1) + np.sum(W2*W2))
+    
+    
     # Backward pass: compute gradients
     grads = {}
-    #############################################################################
-    # TODO: Compute the backward pass, computing the derivatives of the weights #
-    # and biases. Store the results in the grads dictionary. For example,       #
-    # grads['W1'] should store the gradient on W1, and be a matrix of same size #
-    #############################################################################
-    pass
-    #############################################################################
-    #                              END OF YOUR CODE                             #
-    #############################################################################
+    
+    dSoftmax = softmax_scores
+    dSoftmax[range(N),y] += -1
+  
+    dW2 = np.dot(ReLU1.T,dSoftmax) / N + 2 * reg * W2
+    grads['W2'] = dW2
+    
+    grads['b2'] = np.sum(dSoftmax * 1,axis=0) / N
+
+    dX2 = np.dot(dSoftmax, W2.T) / N
+    relu_mask = (ReLU1 > 0).astype(float)
+    dRelu1= relu_mask * dX2
+
+    dW1 = np.dot(X.T,dRelu1) + 2 * reg * W1
+    grads['W1'] = dW1
+
+    grads['b1'] = np.sum(dRelu1 * 1,axis=0)
+
 
     return loss, grads
 
@@ -145,29 +151,19 @@ class TwoLayerNet(object):
       X_batch = None
       y_batch = None
 
-      #########################################################################
-      # TODO: Create a random minibatch of training data and labels, storing  #
-      # them in X_batch and y_batch respectively.                             #
-      #########################################################################
-      pass
-      #########################################################################
-      #                             END OF YOUR CODE                          #
-      #########################################################################
+      batch_indices = np.random.choice(range(num_train),batch_size)
+      X_batch = X[batch_indices]
+      y_batch = y[batch_indices]
 
       # Compute loss and gradients using the current minibatch
       loss, grads = self.loss(X_batch, y=y_batch, reg=reg)
       loss_history.append(loss)
 
-      #########################################################################
-      # TODO: Use the gradients in the grads dictionary to update the         #
-      # parameters of the network (stored in the dictionary self.params)      #
-      # using stochastic gradient descent. You'll need to use the gradients   #
-      # stored in the grads dictionary defined above.                         #
-      #########################################################################
-      pass
-      #########################################################################
-      #                             END OF YOUR CODE                          #
-      #########################################################################
+      self.params['W1'] += -(learning_rate * learning_rate_decay * grads['W1'])
+      self.params['W2'] += -(learning_rate * learning_rate_decay * grads['W2'])
+      self.params['b1'] += -(learning_rate * learning_rate_decay * grads['b1'])
+      self.params['b2'] += -(learning_rate * learning_rate_decay * grads['b2'])
+      
 
       if verbose and it % 100 == 0:
         print('iteration %d / %d: loss %f' % (it, num_iters, loss))
@@ -175,7 +171,7 @@ class TwoLayerNet(object):
       # Every epoch, check train and val accuracy and decay learning rate.
       if it % iterations_per_epoch == 0:
         # Check accuracy
-        train_acc = (self.predict(X_batch) == y_batch).mean()
+        train_acc = (self.predict(X_batch) == y_batch).astype(float).mean()
         val_acc = (self.predict(X_val) == y_val).mean()
         train_acc_history.append(train_acc)
         val_acc_history.append(val_acc)
@@ -206,13 +202,8 @@ class TwoLayerNet(object):
     """
     y_pred = None
 
-    ###########################################################################
-    # TODO: Implement this function; it should be VERY simple!                #
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                              END OF YOUR CODE                           #
-    ###########################################################################
+    scores = self.loss(X)
+    y_pred = np.argmax(scores,axis=1)
 
     return y_pred
 
