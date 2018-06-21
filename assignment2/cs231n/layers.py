@@ -537,17 +537,16 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     """
     out, cache = None, None
 
-    ###########################################################################
-    # TODO: Implement the forward pass for spatial batch normalization.       #
-    #                                                                         #
-    # HINT: You can implement spatial batch normalization using the vanilla   #
-    # version of batch normalization defined above. Your implementation should#
-    # be very short; ours is less than five lines.                            #
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
+    # Batch_norm over N x H x W
+    N,C,H,W = x.shape
+    x_T = x.transpose((0, 2, 3, 1))
+    x_flat = x_T.reshape(-1, C) # (N x H x W) x C
+
+    out, cache = batchnorm_forward(x_flat, gamma, beta, bn_param)
+
+    # Reshape results back to our desired shape.
+    out_reshaped = out.reshape(x_T.shape)
+    out = out_reshaped.transpose((0, 3, 1, 2))
 
     return out, cache
 
@@ -566,18 +565,17 @@ def spatial_batchnorm_backward(dout, cache):
     - dbeta: Gradient with respect to shift parameter, of shape (C,)
     """
     dx, dgamma, dbeta = None, None, None
+    N, C, H, W = dout.shape
 
-    ###########################################################################
-    # TODO: Implement the backward pass for spatial batch normalization.      #
-    #                                                                         #
-    # HINT: You can implement spatial batch normalization using the vanilla   #
-    # version of batch normalization defined above. Your implementation should#
-    # be very short; ours is less than five lines.                            #
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
+    dout_T = dout.transpose((0, 2, 3, 1))
+    dout_flat = dout_T.reshape(-1, C)
+
+    dx, dgamma, dbeta = batchnorm_backward(dout_flat, cache)
+
+    # Reshape dx back to desired shape.
+    dx_reshaped = dx.reshape(dout_T.shape)
+
+    dx = dx_reshaped.transpose((0, 3, 1, 2))
 
     return dx, dgamma, dbeta
 
